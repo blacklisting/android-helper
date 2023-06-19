@@ -4,6 +4,13 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.Menu
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
+import android.widget.BaseAdapter
+import android.widget.SpinnerAdapter
+import android.widget.TextView
+import androidx.core.widget.TextViewCompat
 import com.alibaba.fastjson2.JSONArray
 import com.blacklisting.databinding.ActivityMainBinding
 import com.blacklisting.ds.github.Org
@@ -22,15 +29,41 @@ class MainActivity : AppCompatActivity()
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.spinContent.adapter = object : BaseAdapter() {
+            val list = listEntries()?: emptyList()
+            override fun getCount(): Int = list.size
 
-        initOrPullRepos()
+            override fun getItem(position: Int): Any = list[position]
+
+            override fun getItemId(position: Int): Long = position.toLong()
+
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View
+            {
+                return TextView(this@MainActivity).apply {
+                    text = list[position].second
+                }
+            }
+
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean
     {
         menuInflater.inflate(R.menu.main, menu)
-
         return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean
+    {
+        return when (item.itemId)
+        {
+            R.id.menu_main_init_or_update ->
+                {
+                    initOrPullRepos()
+                    true
+                }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     private val simpleProgressMonitor = object : ProgressMonitor
@@ -113,13 +146,20 @@ class MainActivity : AppCompatActivity()
     }
 
     private fun listEntries() =
-        filesDir.listFiles()?.mapIndexed { repoIndex, repo ->
-            Pair(repoIndex, Pair(repo, repo.listFiles { _, name ->
+        filesDir.listFiles()?.flatMap { repo ->
+            repo.listFiles { _, name ->
                 !name.startsWith(".")
-            }?.mapIndexed { fileIndex, file ->
-                Pair(fileIndex, file.nameWithoutExtension)
-            }))
+            }?.map { file ->
+                Pair(repo, file.nameWithoutExtension)
+            }?: emptyList()
         }
+//        filesDir.listFiles()?.mapIndexed { repoIndex, repo ->
+//            Pair(repoIndex, Pair(repo, repo.listFiles { _, name ->
+//                !name.startsWith(".")
+//            }?.mapIndexed { fileIndex, file ->
+//                Pair(fileIndex, file.nameWithoutExtension)
+//            }))
+//        }
 
     companion object
     {
