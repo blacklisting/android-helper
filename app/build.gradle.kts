@@ -31,6 +31,9 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
     }
+    buildFeatures {
+        viewBinding = true
+    }
 }
 
 dependencies {
@@ -38,7 +41,13 @@ dependencies {
     implementation(libs.core.ktx)
     implementation(libs.appcompat)
     implementation(libs.material)
+    implementation(libs.constraintlayout)
+//    implementation(libs.lifecycle.livedata.ktx)
+//    implementation(libs.lifecycle.viewmodel.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.espresso.core)
+
+    implementation("org.eclipse.jgit", "org.eclipse.jgit", "4.0.0.201506090130-r")
+    implementation("com.alibaba.fastjson2", "fastjson2-kotlin", "2.0.33")
 }
