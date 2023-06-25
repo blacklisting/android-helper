@@ -4,17 +4,24 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Bundle
 import android.util.Log
+import android.util.TypedValue
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.AdapterView.OnItemSelectedListener
 import android.widget.BaseAdapter
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
 import com.alibaba.fastjson2.JSONArray
 import com.blacklisting.databinding.ActivityMainBinding
 import com.blacklisting.ds.github.Org
+import com.google.android.material.button.MaterialButton
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.ProgressMonitor
 import java.io.File
@@ -34,12 +41,19 @@ class MainActivity : AppCompatActivity()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.selectorContent.adapter = object : BaseAdapter() {
-            val list = listEntries()?: emptyList()
-            init
-            {
-                Log.i(ACTIVITY_TAG, list.toString())
-            }
+        initSpinner()
+
+
+        notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        gitNotificationChannel = NotificationChannel("Git", "Git Action", NotificationManager.IMPORTANCE_DEFAULT)
+        notificationManager.createNotificationChannel(gitNotificationChannel)
+    }
+
+    private fun initSpinner()
+    {
+        binding.selectorContent.adapter = object : BaseAdapter()
+        {
+            val list = listEntries() ?: emptyList()
             override fun getCount(): Int = list.size
 
             override fun getItem(position: Int): Any = list[position]
@@ -49,15 +63,67 @@ class MainActivity : AppCompatActivity()
             override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View
             {
                 return TextView(this@MainActivity).apply {
-                    text = "${list[position].first} / ${list[position].second}"
-
+                    tag = list[position].first
+                    text = "${list[position].first}/${list[position].second}"
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 18.0f)
                 }
             }
         }
 
-        notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        gitNotificationChannel = NotificationChannel("Git", "Git Action", NotificationManager.IMPORTANCE_DEFAULT)
-        notificationManager.createNotificationChannel(gitNotificationChannel)
+        binding.selectorContent.onItemSelectedListener = object : OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long)
+            {
+                val target = File("$filesDir/${(view as? TextView)?.text}.csv")
+                val content = target.readText().lines()
+
+                binding.body.removeAllViews()
+                val ls = mutableListOf<EditText>()
+                content[0].split(",")
+                    .map {
+                        binding.body.apply body@ {
+                            this@body.addView(
+                                RelativeLayout(this@MainActivity).apply row@ {
+                                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+//                                    this@row.addView(
+//                                        TextView(this@MainActivity).apply label@ {
+//                                            this@label.layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT)
+//                                            this@label.text = it
+//                                        }
+//                                    )
+                                    this@row.addView(
+                                        EditText(this@MainActivity).apply edit@ {
+                                            this@edit.layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT)
+                                            this@edit.hint = it
+                                            ls.add(this)
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    }
+                binding.body.addView(MaterialButton(this@MainActivity).apply {
+                    text = "Commit"
+                    setOnClickListener {
+                        target.appendText("${ls.joinToString(",") { editText -> "\"${editText.text}\"" }}\n")
+                        Git.open(File("${filesDir.absolutePath}/${binding.selectorContent.selectedView.tag}"))
+                            .add()
+                            .addFilepattern(".")
+                            .call()
+                        Git.open(File("${filesDir.absolutePath}/${binding.selectorContent.selectedView.tag}"))
+                            .commit()
+                            .setAuthor("blacklisting", "who@knows.me")
+                            .setCommitter("blacklisting", "who@knows.me")
+                            .setMessage("Update with a comment just seen.")
+                            .call()
+                    }
+                })
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?)
+            {
+
+            }
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean
@@ -173,6 +239,7 @@ class MainActivity : AppCompatActivity()
                                                 .setAutoCancel(true)
                                                 .build()
                                         )
+                                        initSpinner()
                                     }
 
                                     override fun isCancelled(): Boolean
@@ -181,6 +248,16 @@ class MainActivity : AppCompatActivity()
                                     }
                                 })
                                 .call()
+
+                            Git.open(this)
+                                .repository
+                                .config
+                                .setString("user", "", "name", "blacklisting")
+                            Git.open(this)
+                                .repository
+                                .config
+                                .setString("user", "", "email", "who@knows.me")
+
                         }
                         catch (e: Exception)
                         {
@@ -267,6 +344,7 @@ class MainActivity : AppCompatActivity()
                                                 .setAutoCancel(true)
                                                 .build()
                                         )
+                                        initSpinner()
                                     }
 
                                     override fun isCancelled(): Boolean
