@@ -2,7 +2,6 @@ package com.blacklisting
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.Menu
@@ -10,10 +9,9 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
-import android.widget.SpinnerAdapter
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
-import androidx.core.widget.TextViewCompat
 import com.alibaba.fastjson2.JSONArray
 import com.blacklisting.databinding.ActivityMainBinding
 import com.blacklisting.ds.github.Org
@@ -36,8 +34,12 @@ class MainActivity : AppCompatActivity()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.spinContent.adapter = object : BaseAdapter() {
+        binding.selectorContent.adapter = object : BaseAdapter() {
             val list = listEntries()?: emptyList()
+            init
+            {
+                Log.i(ACTIVITY_TAG, list.toString())
+            }
             override fun getCount(): Int = list.size
 
             override fun getItem(position: Int): Any = list[position]
@@ -47,7 +49,8 @@ class MainActivity : AppCompatActivity()
             override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View
             {
                 return TextView(this@MainActivity).apply {
-                    text = list[position].second
+                    text = "${list[position].first} / ${list[position].second}"
+
                 }
             }
         }
@@ -295,19 +298,17 @@ class MainActivity : AppCompatActivity()
 
     private fun listEntries() =
         filesDir.listFiles()?.flatMap { repo ->
-            repo.listFiles { _, name ->
-                !name.startsWith(".")
-            }?.map { file ->
-                Pair(repo, file.nameWithoutExtension)
-            }?: emptyList()
+            repo.walkTopDown()
+                .toList()
+                .filter { name ->
+                    with(name.toRelativeString(repo)) {
+                        isNotBlank() and !startsWith(".") and endsWith(".csv")
+                    }
+                }
+                .map { file ->
+                    Pair(repo.name, file.toRelativeString(repo).substringBefore(".csv"))
+                }
         }
-//        filesDir.listFiles()?.mapIndexed { repoIndex, repo ->
-//            Pair(repoIndex, Pair(repo, repo.listFiles { _, name ->
-//                !name.startsWith(".")
-//            }?.mapIndexed { fileIndex, file ->
-//                Pair(fileIndex, file.nameWithoutExtension)
-//            }))
-//        }
 
 
     companion object
